@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Request Booking</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 24px; }
+        label { display:block; margin-top:12px; }
+        input, select { padding:8px; width: 320px; }
+        button { margin-top: 14px; padding: 10px 14px; }
+        .box { border:1px solid #ddd; border-radius:8px; padding:12px; margin-top:16px; }
+        .muted { color:#666; }
+    </style>
+</head>
+<body>
+<h1>Request Booking</h1>
+<p class="muted">Phase 1 in-memory bookings</p>
+
+<div class="box">
+    <button id="btnLoad">Load services</button>
+    <label>Service</label>
+    <select id="serviceSelect"></select>
+
+    <label>Your name</label>
+    <input id="clientName" placeholder="e.g., Qinsong" />
+
+    <label>Start time (YYYY-MM-DDTHH:MM)</label>
+    <input id="startTime" placeholder="2026-02-28T19:30" />
+
+    <button id="btnSubmit">Submit booking</button>
+    <div id="msg"></div>
+</div>
+
+<div class="box">
+    <button id="btnBookings">Load bookings</button>
+    <pre id="bookings"></pre>
+</div>
+
+<script>
+    const sel = document.getElementById("serviceSelect");
+    const msg = document.getElementById("msg");
+    const bookingsPre = document.getElementById("bookings");
+
+    async function loadServices() {
+        const res = await fetch("/services");
+        const data = await res.json();
+        sel.innerHTML = "";
+        data.forEach(s => {
+            const opt = document.createElement("option");
+            opt.value = s.id;
+            opt.textContent = `${s.name} (${s.durationMinutes}min, $${s.price})`;
+            sel.appendChild(opt);
+        });
+    }
+
+    async function submitBooking() {
+        msg.textContent = "Submitting...";
+        const body = {
+            serviceId: Number(sel.value),
+            clientName: document.getElementById("clientName").value,
+            startTime: document.getElementById("startTime").value
+        };
+
+        const res = await fetch("/bookings", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body)
+        });
+
+        if (!res.ok) {
+            msg.textContent = "Failed: HTTP " + res.status;
+            return;
+        }
+
+        const created = await res.json();
+        msg.textContent = "Created booking: " + JSON.stringify(created);
+    }
+
+    async function loadBookings() {
+        const res = await fetch("/bookings");
+        const data = await res.json();
+        bookingsPre.textContent = JSON.stringify(data, null, 2);
+    }
+
+    document.getElementById("btnLoad").onclick = loadServices;
+    document.getElementById("btnSubmit").onclick = submitBooking;
+    document.getElementById("btnBookings").onclick = loadBookings;
+
+    // auto load once
+    loadServices();
+</script>
+</body>
+</html>
