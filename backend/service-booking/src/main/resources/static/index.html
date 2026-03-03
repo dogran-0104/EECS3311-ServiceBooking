@@ -2,50 +2,60 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>Service Booking - Browse Services</title>
+    <title>Browse Services</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 24px; }
-        .card { border: 1px solid #ddd; border-radius: 8px; padding: 12px; margin: 10px 0; }
-        .muted { color: #666; }
+        button { padding: 10px 14px; }
+        .muted { color:#666; }
+        .box { border:1px solid #ddd; border-radius:8px; padding:12px; margin-top:16px; }
+        pre { background:#f7f7f7; padding:12px; border-radius:8px; overflow:auto; }
     </style>
 </head>
 <body>
 <h1>Browse Services</h1>
-<p class="muted">Endpoint: <code>/services</code></p>
+<p class="muted">Endpoint: <code>/api/services</code></p>
 
-<button id="btnLoad">Load services</button>
-<div id="list"></div>
+<div class="box">
+    <button id="btnLoad">Load services</button>
+    <div id="msg" class="muted" style="margin-top:10px;"></div>
+    <pre id="out">Click "Load services" to fetch data...</pre>
+</div>
+
+<div class="box">
+    <p class="muted">Quick links:</p>
+    <ul>
+        <li><a href="/booking.html">Go to booking page</a></li>
+        <li><a href="/api/services" target="_blank">Open /api/services JSON</a></li>
+    </ul>
+</div>
 
 <script>
-    const listDiv = document.getElementById("list");
-    const btn = document.getElementById("btnLoad");
+    const API_BASE = "/api";
+    const out = document.getElementById("out");
+    const msg = document.getElementById("msg");
 
-    function render(services) {
-        listDiv.innerHTML = "";
-        services.forEach(s => {
-            const card = document.createElement("div");
-            card.className = "card";
-            card.innerHTML = `
-          <b>${s.name}</b><br/>
-          Duration: ${s.durationMinutes} minutes<br/>
-          Price: $${s.price}<br/>
-          <span class="muted">ID: ${s.id}</span>
-        `;
-            listDiv.appendChild(card);
-        });
+    async function loadServices() {
+        msg.textContent = "Loading...";
+        out.textContent = "";
+
+        try {
+            const res = await fetch(`${API_BASE}/services`);
+
+            if (!res.ok) {
+                msg.textContent = `Failed: HTTP ${res.status}`;
+                out.textContent = await res.text();
+                return;
+            }
+
+            const data = await res.json();
+            msg.textContent = `Loaded ${Array.isArray(data) ? data.length : 0} services.`;
+            out.textContent = JSON.stringify(data, null, 2);
+        } catch (e) {
+            msg.textContent = "Failed: " + e;
+        }
     }
 
-    btn.addEventListener("click", async () => {
-        listDiv.innerHTML = "Loading...";
-        try {
-            const res = await fetch("/services");
-            if (!res.ok) throw new Error("HTTP " + res.status);
-            const data = await res.json();
-            render(data);
-        } catch (e) {
-            listDiv.innerHTML = "Failed: " + e.message;
-        }
-    });
+    document.getElementById("btnLoad").onclick = loadServices;
 </script>
 </body>
 </html>

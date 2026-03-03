@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Admin Console - Service Booking</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 24px; }
+        h1 { margin-bottom: 6px; }
+        .muted { color:#666; margin-top: 0; }
+        .row { display:flex; gap:12px; flex-wrap: wrap; align-items: end; }
+        .box { border:1px solid #ddd; border-radius:10px; padding:14px; margin-top:14px; }
+        label { display:block; font-size: 14px; margin-top: 10px; }
+        input, select { padding:8px; width: 260px; }
+        button { padding: 10px 14px; cursor: pointer; }
+        pre { background:#f7f7f7; padding:10px; border-radius:8px; overflow:auto; max-height: 280px; }
+        .btns button { margin-right: 8px; margin-top: 8px; }
+        .ok { color: #0a7a0a; }
+        .err { color: #b00020; }
+        .small { font-size: 13px; }
+    </style>
+</head>
+<body>
+<h1>Admin Console</h1>
+<p class="muted">Phase 1 demo: bookings + accept/reject/cancel + payments</p>
+
+<div class="box">
+    <div class="row">
+        <div>
+            <button id="btnLoadBookings">Load bookings</button>
+            <div class="small muted">GET /api/bookings</div>
+        </div>
+        <div>
+            <label>Booking ID</label>
+            <input id="bookingId" placeholder="e.g., 1" />
+        </div>
+        <div class="btns">
+            <button id="btnAccept">Accept</button>
+            <button id="btnReject">Reject</button>
+            <button id="btnCancel">Cancel</button>
+        </div>
+    </div>
+
+    <div id="bookingMsg" class="small"></div>
+    <pre id="bookingsOut">[]</pre>
+</div>
+
+<div class="box">
+    <h3 style="margin-top:0;">Payment</h3>
+    <div class="row">
+        <div>
+            <label>Booking ID</label>
+            <input id="payBookingId" placeholder="e.g., 1" />
+        </div>
+
+        <div>
+            <label>Amount</label>
+            <input id="amount" placeholder="e.g., 80" />
+        </div>
+
+        <div>
+            <label>Method Type</label>
+            <select id="methodType">
+                <option value="CREDIT_CARD">CREDIT_CARD</option>
+                <option value="DEBIT_CARD">DEBIT_CARD</option>
+                <option value="BANK_TRANSFER">BANK_TRANSFER</option>
+                <option value="PAYPAL">PAYPAL</option>
+            </select>
+        </div>
+
+        <div>
+            <button id="btnPay">Pay</button>
+            <div class="small muted">POST /api/payments</div>
+        </div>
+    </div>
+
+    <div id="payMsg" class="small"></div>
+    <pre id="payOut">{}</pre>
+</div>
+
+<div class="box">
+    <div class="row">
+        <div>
+            <button id="btnLoadPayments">Load payments</button>
+            <div class="small muted">GET /api/payments</div>
+        </div>
+        <div>
+            <label>Payments by Booking ID (optional)</label>
+            <input id="filterPayBookingId" placeholder="e.g., 1" />
+        </div>
+        <div>
+            <button id="btnLoadPaymentsByBooking">Load by booking</button>
+            <div class="small muted">GET /api/bookings/{id}/payments</div>
+        </div>
+    </div>
+
+    <div id="paymentsMsg" class="small"></div>
+    <pre id="paymentsOut">[]</pre>
+</div>
+
+<script>
+    const api = "/api";
+
+    const bookingsOut = document.getElementById("bookingsOut");
+    const bookingMsg = document.getElementById("bookingMsg");
+
+    const payMsg = document.getElementById("payMsg");
+    const payOut = document.getElementById("payOut");
+
+    const paymentsMsg = document.getElementById("paymentsMsg");
+    const paymentsOut = document.getElementById("paymentsOut");
+
+    function setMsg(el, text, ok=true) {
+        el.textContent = text;
+        el.className = ok ? "small ok" : "small err";
+    }
+
+    async function loadBookings() {
+        try {
+            const res = await fetch(`${api}/bookings`);
+            const data = await res.json();
+            bookingsOut.textContent = JSON.stringify(data, null, 2);
+            setMsg(bookingMsg, `Loaded ${data.length} bookings`, true);
+        } catch (e) {
+            setMsg(bookingMsg, "Failed to load bookings: " + e, false);
+        }
+    }
+
+    async function actionBooking(action) {
+        const id = document.getElementById("bookingId").value.trim();
+        if (!id) { setMsg(bookingMsg, "Please enter bookingId", false); return; }
+
+        try {
+            const res = await fetch(`${api}/bookings/${id}/${action}`, { method: "POST" });
+            if (!res.ok) {
+                const txt = await res.text();
+                setMsg(bookingMsg, `Failed (${res.status}): ${txt}`, false);
+                return;
+            }
+            const data = await res.json();
+            setMsg(bookingMsg, `Success: ${action} booking #${id}`, true);
+            await loadBookings();
+        } catch (e) {
+            setMsg(bookingMsg, "Request failed: " + e, false);
+        }
+    }
+
+    async function pay() {
+        const bookingId = document.getElementById("payBookingId").value.trim();
+        const amount = document.getElementById("amount").value.trim();
+        const methodType = document.getElementById("methodType").value;
+
+        if (!bookingId || !amount) {
+            setMsg(payMsg, "Please enter bookingId and amount", false);
+            return;
+        }
+
+        const body = {
+            bookingId: Number(bookingId),
+            amount: Number(amount),
+            methodType: methodType
+        };
+
+        try {
+            const res = await fetch(`${api}/payments`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body)
+            });
+
+            if (!res.ok) {
+                const txt = await res.text();
+                setMsg(payMsg, `Pay failed (${res.status}): ${txt}`, false);
+                return;
+            }
+
+            const data = await res.json();
+            payOut.textContent = JSON.stringify(data, null, 2);
+            setMsg(payMsg, `Payment created: status=${data.status}`, true);
+        } catch (e) {
+            setMsg(payMsg, "Pay request failed: " + e, false);
+        }
+    }
+
+    async function loadPayments() {
+        try {
+            const res = await fetch(`${api}/payments`);
+            const data = await res.json();
+            paymentsOut.textContent = JSON.stringify(data, null, 2);
+            setMsg(paymentsMsg, `Loaded ${data.length} payments`, true);
+        } catch (e) {
+            setMsg(paymentsMsg, "Failed to load payments: " + e, false);
+        }
+    }
+
+    async function loadPaymentsByBooking() {
+        const id = document.getElementById("filterPayBookingId").value.trim();
+        if (!id) { setMsg(paymentsMsg, "Please enter bookingId to filter", false); return; }
+
+        try {
+            const res = await fetch(`${api}/bookings/${id}/payments`);
+            const data = await res.json();
+            paymentsOut.textContent = JSON.stringify(data, null, 2);
+            setMsg(paymentsMsg, `Loaded ${data.length} payments for booking #${id}`, true);
+        } catch (e) {
+            setMsg(paymentsMsg, "Failed to load payments by booking: " + e, false);
+        }
+    }
+
+    document.getElementById("btnLoadBookings").onclick = loadBookings;
+    document.getElementById("btnAccept").onclick = () => actionBooking("accept");
+    document.getElementById("btnReject").onclick = () => actionBooking("reject");
+    document.getElementById("btnCancel").onclick = () => actionBooking("cancel");
+
+    document.getElementById("btnPay").onclick = pay;
+    document.getElementById("btnLoadPayments").onclick = loadPayments;
+    document.getElementById("btnLoadPaymentsByBooking").onclick = loadPaymentsByBooking;
+
+    // auto load once
+    loadBookings();
+    loadPayments();
+</script>
+</body>
+</html>
