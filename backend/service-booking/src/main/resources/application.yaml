@@ -3,9 +3,9 @@ spring:
     name: service-booking
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/service_booking_db
-    username: postgres
-    password: Cqs030104
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/service_booking_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:Cqs030104}
     driver-class-name: org.postgresql.Driver
 
   jpa:

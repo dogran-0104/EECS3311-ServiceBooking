@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Request Booking</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; }
+    label { display:block; margin-top:12px; }
+    input, select { padding:8px; width: 360px; max-width: 100%; }
+    button { margin-top: 14px; padding: 10px 14px; }
+    .box { border:1px solid #ddd; border-radius:8px; padding:12px; margin-top:16px; max-width: 760px; }
+    .muted { color:#666; }
+    .row { display:flex; gap:16px; flex-wrap:wrap; align-items:center; }
+    .msg { margin-top:10px; white-space:pre-wrap; }
+    pre { background:#f7f7f7; padding:10px; border-radius:6px; overflow:auto; }
+  </style>
+</head>
+<body>
+<h1>Request Booking</h1>
+<p class="muted">Client booking page</p>
+
+<div class="box">
+  <div class="row">
+    <button id="btnLoadServices">Load services</button>
+    <span class="muted">API base: <code id="apiBase"></code></span>
+  </div>
+
+  <label>Service</label>
+  <select id="serviceSelect">
+    <option value="">-- click Load services first --</option>
+  </select>
+
+  <div class="row" style="margin-top:10px;">
+    <button id="btnLoadSlots">Load slots</button>
+    <span class="muted">(consultantId = <span id="consultantIdLabel">1</span>)</span>
+  </div>
+
+  <label>Available slots</label>
+  <select id="slotSelect">
+    <option value="">-- click Load slots first --</option>
+  </select>
+
+  <label>Your name</label>
+  <input id="clientName" placeholder="e.g., Qinsong" />
+
+  <label>Start time (YYYY-MM-DDTHH:MM:SS)</label>
+  <input id="startTime" placeholder="2026-04-01T10:00:00" />
+
+  <div class="row">
+    <button id="btnSubmit">Submit booking</button>
+  </div>
+
+  <div id="msg" class="msg"></div>
+</div>
+
+<div class="box">
+  <button id="btnLoadBookings">Load bookings</button>
+  <pre id="bookings">Click "Load bookings" to fetch data...</pre>
+</div>
+
+<script>
+  const API_BASE = "http://localhost:8080/api";
+  const CONSULTANT_ID = 1;
+
+  const apiBaseEl = document.getElementById("apiBase");
+  const consultantIdLabel = document.getElementById("consultantIdLabel");
+  const serviceSelect = document.getElementById("serviceSelect");
+  const slotSelect = document.getElementById("slotSelect");
+  const msg = document.getElementById("msg");
+  const bookingsPre = document.getElementById("bookings");
+  const startTimeInput = document.getElementById("startTime");
+
+  apiBaseEl.textContent = API_BASE;
+  consultantIdLabel.textContent = CONSULTANT_ID;
+
+  function showMsg(text) {
+    msg.textContent = text;
+  }
+
+  async function loadServices() {
+    showMsg("Loading services...");
+    try {
+      const res = await fetch(`${API_BASE}/services`);
+      if (!res.ok) {
+        showMsg(`Load services failed: HTTP ${res.status}`);
+        return;
+      }
+
+      const data = await res.json();
+      serviceSelect.innerHTML = "";
+
+      if (!Array.isArray(data) || data.length === 0) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "-- no services available --";
+        serviceSelect.appendChild(opt);
+        showMsg("No services returned.");
+        return;
+      }
+
+      data.forEach(s => {
+        const opt = document.createElement("option");
+        opt.value = s.id;
+        opt.textContent = `${s.name} (${s.durationMinutes}min, $${s.price})`;
+        serviceSelect.appendChild(opt);
+      });
+
+      showMsg(`Loaded ${data.length} services.`);
+    } catch (e) {
+      showMsg("Load services failed: " + e);
+    }
+  }
+
+  async function loadSlots() {
+    showMsg("Loading slots...");
+    try {
+      const res = await fetch(`${API_BASE}/consultants/${CONSULTANT_ID}/slots`);
+      if (!res.ok) {
+        showMsg(`Load slots failed: HTTP ${res.status}`);
+        return;
+      }
+
+      const slots = await res.json();
+      slotSelect.innerHTML = "";
+
+      if (!Array.isArray(slots) || slots.length === 0) {
+        const opt = document.createElement("option");
+        opt.value = "";
+        opt.textContent = "-- no slots available --";
+        slotSelect.appendChild(opt);
+        showMsg("No slots returned.");
+        return;
+      }
+
+      const first = document.createElement("option");
+      first.value = "";
+      first.textContent = "-- select a slot --";
+      slotSelect.appendChild(first);
+
+      slots.forEach(slot => {
+        const start = slot.startTime || "";
+        const end = slot.endTime || "";
+        const available = slot.available ? "available" : "unavailable";
+
+        const opt = document.createElement("option");
+        opt.value = start;
+        opt.textContent = `${start} ~ ${end} (${available})`;
+        slotSelect.appendChild(opt);
+      });
+
+      showMsg(`Loaded ${slots.length} slots.`);
+    } catch (e) {
+      showMsg("Load slots failed: " + e);
+    }
+  }
+
+  slotSelect.addEventListener("change", () => {
+    if (slotSelect.value) {
+      startTimeInput.value = slotSelect.value;
+    }
+  });
+
+  async function submitBooking() {
+    showMsg("Submitting booking...");
+
+    const clientName = document.getElementById("clientName").value.trim();
+    const startTime = document.getElementById("startTime").value.trim();
+    const serviceId = serviceSelect.value;
+
+    if (!serviceId) {
+      showMsg("Please choose a service.");
+      return;
+    }
+    if (!clientName) {
+      showMsg("Please enter your name.");
+      return;
+    }
+    if (!startTime) {
+      showMsg("Please choose a slot or enter start time.");
+      return;
+    }
+
+    const body = {
+      serviceId: String(serviceId),
+      clientName,
+      startTime,
+      consultantId: String(CONSULTANT_ID)
+    };
+
+    try {
+      const res = await fetch(`${API_BASE}/bookings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        showMsg(`Submit failed: HTTP ${res.status}\n${txt}`);
+        return;
+      }
+
+      const created = await res.json();
+      showMsg("Created booking:\n" + JSON.stringify(created, null, 2));
+      loadBookings();
+    } catch (e) {
+      showMsg("Submit failed: " + e);
+    }
+  }
+
+  async function loadBookings() {
+    showMsg("Loading bookings...");
+    try {
+      const res = await fetch(`${API_BASE}/bookings`);
+      if (!res.ok) {
+        showMsg(`Load bookings failed: HTTP ${res.status}`);
+        return;
+      }
+
+      const data = await res.json();
+      bookingsPre.textContent = JSON.stringify(data, null, 2);
+      showMsg(`Loaded ${Array.isArray(data) ? data.length : 0} bookings.`);
+    } catch (e) {
+      showMsg("Load bookings failed: " + e);
+    }
+  }
+
+  document.getElementById("btnLoadServices").onclick = loadServices;
+  document.getElementById("btnLoadSlots").onclick = loadSlots;
+  document.getElementById("btnSubmit").onclick = submitBooking;
+  document.getElementById("btnLoadBookings").onclick = loadBookings;
+
+  loadServices();
+</script>
+</body>
+</html>
+

@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Browse Services</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; }
+    button { padding: 10px 14px; cursor: pointer; }
+    textarea, input { padding: 10px; width: 100%; box-sizing: border-box; }
+    .muted { color:#666; }
+    .box { border:1px solid #ddd; border-radius:8px; padding:12px; margin-top:16px; }
+    pre {
+      background:#f7f7f7;
+      padding:12px;
+      border-radius:8px;
+      overflow:auto;
+      white-space:pre-wrap;
+      word-break:break-word;
+    }
+    .row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+    .chat-answer {
+      background:#f7f7f7;
+      padding:12px;
+      border-radius:8px;
+      margin-top:10px;
+      white-space:pre-wrap;
+    }
+  </style>
+</head>
+<body>
+<h1>Browse Services</h1>
+<p class="muted">Endpoint: <code>http://localhost:8080/api/services</code></p>
+
+<div class="box">
+  <button id="btnLoad">Load services</button>
+  <div id="msg" class="muted" style="margin-top:10px;"></div>
+  <pre id="out">Click "Load services" to fetch data...</pre>
+</div>
+
+<div class="box">
+  <p class="muted">Quick links:</p>
+  <ul>
+    <li><a href="/booking.html">Go to booking page</a></li>
+    <li><a href="/admin.html">Go to admin page</a></li>
+    <li><a href="http://localhost:8080/api/services" target="_blank">Open /api/services JSON</a></li>
+  </ul>
+</div>
+
+<div class="box">
+  <h2 style="margin-top:0;">AI Assistant</h2>
+  <p class="muted">Ask about booking, services, payments, cancellation, consultant availability, or admin functions.</p>
+
+  <label for="questionInput" class="muted">Your question</label>
+  <textarea id="questionInput" rows="4" placeholder="e.g. How do I book a consultant?"></textarea>
+
+  <div class="row" style="margin-top:12px;">
+    <button id="btnAsk">Ask assistant</button>
+  </div>
+
+  <div id="chatMsg" class="muted" style="margin-top:10px;"></div>
+  <div id="chatAnswer" class="chat-answer">The assistant response will appear here.</div>
+</div>
+
+<script>
+  const API_BASE = "http://localhost:8080/api";
+  const out = document.getElementById("out");
+  const msg = document.getElementById("msg");
+
+  const questionInput = document.getElementById("questionInput");
+  const btnAsk = document.getElementById("btnAsk");
+  const chatMsg = document.getElementById("chatMsg");
+  const chatAnswer = document.getElementById("chatAnswer");
+
+  async function loadServices() {
+    msg.textContent = "Loading...";
+    out.textContent = "";
+
+    try {
+      const res = await fetch(`${API_BASE}/services`);
+
+      if (!res.ok) {
+        msg.textContent = `Failed: HTTP ${res.status}`;
+        out.textContent = await res.text();
+        return;
+      }
+
+      const data = await res.json();
+      msg.textContent = `Loaded ${Array.isArray(data) ? data.length : 0} services.`;
+      out.textContent = JSON.stringify(data, null, 2);
+    } catch (e) {
+      msg.textContent = "Failed: " + e;
+    }
+  }
+
+  async function askAssistant() {
+    const question = questionInput.value.trim();
+
+    if (!question) {
+      chatMsg.textContent = "Please enter a question first.";
+      return;
+    }
+
+    chatMsg.textContent = "Thinking...";
+    chatAnswer.textContent = "";
+
+    try {
+      const res = await fetch(`${API_BASE}/chatbot/ask`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ question })
+      });
+
+      if (!res.ok) {
+        chatMsg.textContent = `Failed: HTTP ${res.status}`;
+        chatAnswer.textContent = await res.text();
+        return;
+      }
+
+      const data = await res.json();
+      chatMsg.textContent = "Response received.";
+      chatAnswer.textContent = data.answer || "No answer returned.";
+    } catch (e) {
+      chatMsg.textContent = "Request failed: " + e;
+      chatAnswer.textContent = "";
+    }
+  }
+
+  document.getElementById("btnLoad").onclick = loadServices;
+  btnAsk.onclick = askAssistant;
+</script>
+</body>
+</html>

@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 
 @RestController
-@RequestMapping("/api/admin")
+@RequestMapping("/api/admin.html")
 public class AdminController {
 
     private final ConsultantService consultantService;

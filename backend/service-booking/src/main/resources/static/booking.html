@@ -119,15 +119,6 @@
         const first = document.createElement("option");
         first.value = "";
         first.textContent = "-- select a slot --";
-        slotSelect.appendChild(first);
-
-        slots.forEach(t => {
-            const opt = document.createElement("option");
-            opt.value = t;
-            opt.textContent = t;
-            slotSelect.appendChild(opt);
-        });
-
         showMsg(`Loaded ${slots.length} slots.`);
     }
 
@@ -195,4 +186,12 @@
     loadServices();
 </script>
 </body>
-</html>
+</html>        slotSelect.appendChild(first);
+
+        slots.forEach(t => {
+            const opt = document.createElement("option");
+            opt.value = t;
+            opt.textContent = t;
+            slotSelect.appendChild(opt);
+        });
+
