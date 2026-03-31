@@ -160,6 +160,24 @@ Policy abstraction for cancellation/system rule logic
 
 These patterns were implemented in the backend and extended through Phase 2.
 
+### Project Structure
+EECS3311-ServiceBooking/
+|-- backend/
+|   |-- service-booking/
+|   |   |-- src/
+|   |   +-- Dockerfile
+|-- frontend/
+|   |-- index.html
+|   |-- booking.html
+|   |-- admin.html
+|   |-- default.conf
+|   +-- Dockerfile
+|-- diagrams/
+|-- docker-compose.yml
+|-- .env.example
+|-- AI_CHATBOT_DOCUMENTATION.md
++-- README.md
+
 Team Contributions
 ### Qinsong Chang — Phase 2 Integration Lead, Documentation, Docker, AI Assistant, Frontend-Backend Integration
 Led the overall Phase 2 extension and integration work based on the Phase 1 system.
