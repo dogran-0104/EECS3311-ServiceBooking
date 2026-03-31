@@ -1,5 +1,6 @@
 package com.eecs3311.servicebooking.controller;
 
+import com.eecs3311.servicebooking.model.AvailabilitySlot;
 import com.eecs3311.servicebooking.model.Booking;
 import com.eecs3311.servicebooking.service.AvailabilityService;
 import com.eecs3311.servicebooking.service.BookingService;
@@ -24,48 +25,49 @@ public class BookingController {
 
     // UC8: consultant slots
     @GetMapping("/consultants/{consultantId}/slots")
-    public List<LocalDateTime> listSlots(@PathVariable long consultantId) {
+    public List<AvailabilitySlot> listSlots(@PathVariable long consultantId) {
         return availabilityService.listSlots(consultantId);
     }
 
-    // UC2: request booking (now must check availability)
+    // UC2: request booking
     @PostMapping("/bookings")
     public ResponseEntity<?> createBooking(@RequestBody Map<String, String> body) {
         long serviceId = Long.parseLong(body.get("serviceId"));
         String clientName = body.get("clientName");
         LocalDateTime startTime = LocalDateTime.parse(body.get("startTime"));
-        long consultantId = Long.parseLong(body.getOrDefault("consultantId", "1"));
+        long consultantId = Long.parseLong(body.get("consultantId"));
 
-        boolean ok = availabilityService.reserveIfAvailable(consultantId, startTime);
-        if (!ok) {
-            return ResponseEntity.badRequest().body("Selected time is not available.");
+        if (!availabilityService.isAvailable(consultantId, startTime)) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Selected consultant is not available at the requested time."
+            ));
         }
 
-        Booking created = bookingService.create(serviceId, clientName, startTime, consultantId);
-        return ResponseEntity.ok(created);
+        Booking booking = bookingService.create(serviceId, clientName, startTime, consultantId);
+        return ResponseEntity.ok(booking);
     }
 
-    // UC4: list bookings
+    // UC4: view booking history / list all bookings
     @GetMapping("/bookings")
     public List<Booking> listBookings() {
         return bookingService.listAll();
     }
 
-    // UC9: accept
+    // UC9: consultant accepts booking
     @PostMapping("/bookings/{id}/accept")
-    public Booking accept(@PathVariable long id) {
+    public Booking acceptBooking(@PathVariable long id) {
         return bookingService.accept(id);
     }
 
-    // UC9: reject
+    // UC9: consultant rejects booking
     @PostMapping("/bookings/{id}/reject")
-    public Booking reject(@PathVariable long id) {
+    public Booking rejectBooking(@PathVariable long id) {
         return bookingService.reject(id);
     }
 
-    // UC3: cancel
+    // UC3: cancel booking
     @PostMapping("/bookings/{id}/cancel")
-    public Booking cancel(@PathVariable long id) {
+    public Booking cancelBooking(@PathVariable long id) {
         return bookingService.cancel(id);
     }
 }

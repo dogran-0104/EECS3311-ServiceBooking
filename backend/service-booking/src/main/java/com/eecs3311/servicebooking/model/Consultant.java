@@ -1,9 +1,21 @@
 package com.eecs3311.servicebooking.model;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "consultants")
 public class Consultant {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
     private String name;
-    private boolean approved; // UC11: admin approve/reject consultant
+    private boolean approved;
 
     public Consultant() {}
 

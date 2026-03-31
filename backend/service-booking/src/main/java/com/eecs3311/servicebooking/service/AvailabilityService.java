@@ -1,46 +1,57 @@
 package com.eecs3311.servicebooking.service;
 
+import com.eecs3311.servicebooking.model.AvailabilitySlot;
+import com.eecs3311.servicebooking.repository.AvailabilitySlotRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.Comparator;
+import java.util.List;
 
 @Service
 public class AvailabilityService {
 
-    // consultantId -> set of available start times
-    private final Map<Long, Set<LocalDateTime>> availability = new HashMap<>();
+    private final AvailabilitySlotRepository availabilitySlotRepository;
 
-    public AvailabilityService() {
-        // demo consultant 1：给一些默认可用时间，方便你演示
-        long consultantId = 1L;
-        Set<LocalDateTime> slots = new HashSet<>();
-        slots.add(LocalDateTime.now().plusHours(2).withSecond(0).withNano(0));
-        slots.add(LocalDateTime.now().plusHours(3).withSecond(0).withNano(0));
-        slots.add(LocalDateTime.now().plusDays(1).withHour(10).withMinute(0).withSecond(0).withNano(0));
-        availability.put(consultantId, slots);
+    public AvailabilityService(AvailabilitySlotRepository availabilitySlotRepository) {
+        this.availabilitySlotRepository = availabilitySlotRepository;
     }
 
-    public List<LocalDateTime> listSlots(long consultantId) {
-        Set<LocalDateTime> set = availability.getOrDefault(consultantId, new HashSet<>());
-        List<LocalDateTime> list = new ArrayList<>(set);
-        list.sort(Comparator.naturalOrder());
+    public AvailabilitySlot addSlot(long consultantId, LocalDateTime startTime, LocalDateTime endTime) {
+        AvailabilitySlot slot = new AvailabilitySlot(
+                null,
+                consultantId,
+                startTime,
+                endTime,
+                true
+        );
+        return availabilitySlotRepository.save(slot);
+    }
+
+    public List<AvailabilitySlot> listAll() {
+        List<AvailabilitySlot> list = availabilitySlotRepository.findAll();
+        list.sort(Comparator.comparing(AvailabilitySlot::getStartTime));
         return list;
     }
 
-    public void addSlot(long consultantId, LocalDateTime startTime) {
-        availability.computeIfAbsent(consultantId, k -> new HashSet<>()).add(startTime);
+    public List<AvailabilitySlot> listByConsultant(long consultantId) {
+        List<AvailabilitySlot> list = availabilitySlotRepository.findByConsultantId(consultantId);
+        list.sort(Comparator.comparing(AvailabilitySlot::getStartTime));
+        return list;
     }
 
-    public void removeSlot(long consultantId, LocalDateTime startTime) {
-        availability.getOrDefault(consultantId, new HashSet<>()).remove(startTime);
+    // 兼容你原来 BookingController 的旧方法名
+    public List<AvailabilitySlot> listSlots(long consultantId) {
+        return listByConsultant(consultantId);
     }
 
-    // booking request 的时候用：占用一个 slot
-    public boolean reserveIfAvailable(long consultantId, LocalDateTime startTime) {
-        Set<LocalDateTime> set = availability.getOrDefault(consultantId, new HashSet<>());
-        if (!set.contains(startTime)) return false;
-        set.remove(startTime);
-        return true;
+    // 检查某个 consultant 在某个开始时间是否有可用时段
+    public boolean isAvailable(long consultantId, LocalDateTime startTime) {
+        return availabilitySlotRepository.findByConsultantId(consultantId).stream()
+                .anyMatch(slot ->
+                        slot.isAvailable()
+                                && !startTime.isBefore(slot.getStartTime())
+                                && startTime.isBefore(slot.getEndTime())
+                );
     }
 }

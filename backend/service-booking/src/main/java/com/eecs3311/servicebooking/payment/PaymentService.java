@@ -1,30 +1,37 @@
 package com.eecs3311.servicebooking.payment;
 
+import com.eecs3311.servicebooking.model.Booking;
+import com.eecs3311.servicebooking.model.BookingStatus;
+import com.eecs3311.servicebooking.repository.BookingRepository;
+import com.eecs3311.servicebooking.repository.PaymentRecordRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 public class PaymentService {
 
     private final PaymentFactory paymentFactory;
-    private final List<PaymentRecord> payments = new ArrayList<>();
-    private final AtomicLong idGen = new AtomicLong(1);
+    private final PaymentRecordRepository paymentRecordRepository;
+    private final BookingRepository bookingRepository;
 
-    public PaymentService(PaymentFactory paymentFactory) {
+    public PaymentService(PaymentFactory paymentFactory,
+                          PaymentRecordRepository paymentRecordRepository,
+                          BookingRepository bookingRepository) {
         this.paymentFactory = paymentFactory;
+        this.paymentRecordRepository = paymentRecordRepository;
+        this.bookingRepository = bookingRepository;
     }
 
     public PaymentRecord pay(long bookingId, double amount, String methodType) {
-        PaymentMethod method = paymentFactory.create(methodType);
+        Booking booking = bookingRepository.findById(bookingId).orElseThrow();
 
+        PaymentMethod method = paymentFactory.create(methodType);
         boolean ok = method.process(amount);
 
         PaymentRecord record = new PaymentRecord(
-                idGen.getAndIncrement(),
+                null,
                 bookingId,
                 amount,
                 methodType == null ? null : methodType.toUpperCase(),
@@ -32,21 +39,21 @@ public class PaymentService {
                 LocalDateTime.now()
         );
 
-        payments.add(record);
-        return record;
+        PaymentRecord saved = paymentRecordRepository.save(record);
+
+        if (ok) {
+            booking.setStatus(BookingStatus.PAID);
+            bookingRepository.save(booking);
+        }
+
+        return saved;
     }
 
     public List<PaymentRecord> listAll() {
-        return payments;
+        return paymentRecordRepository.findAll();
     }
 
     public List<PaymentRecord> listByBookingId(long bookingId) {
-        List<PaymentRecord> out = new ArrayList<>();
-        for (PaymentRecord r : payments) {
-            if (r.getBookingId() != null && r.getBookingId() == bookingId) {
-                out.add(r);
-            }
-        }
-        return out;
+        return paymentRecordRepository.findByBookingId(bookingId);
     }
 }

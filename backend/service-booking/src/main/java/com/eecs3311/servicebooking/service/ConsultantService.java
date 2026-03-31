@@ -1,59 +1,58 @@
 package com.eecs3311.servicebooking.service;
 
 import com.eecs3311.servicebooking.model.Consultant;
+import com.eecs3311.servicebooking.repository.ConsultantRepository;
+import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.Comparator;
+import java.util.List;
+import java.util.NoSuchElementException;
+import java.util.Optional;
 
 @Service
 public class ConsultantService {
 
-    private final Map<Long, Consultant> consultants = new HashMap<>();
-    private final AtomicLong idGen = new AtomicLong(1);
+    private final ConsultantRepository consultantRepository;
 
-    public ConsultantService() {
-        // 给你一个默认顾问，跟你现在 consultantId=1 的 slots 对上
-        Consultant c1 = new Consultant(1L, "Default Consultant", true);
-        consultants.put(1L, c1);
+    public ConsultantService(ConsultantRepository consultantRepository) {
+        this.consultantRepository = consultantRepository;
+    }
 
-        // 再给一个未审批的顾问（方便你演示 UC11）
-        Consultant c2 = new Consultant(2L, "New Applicant", false);
-        consultants.put(2L, c2);
-
-        // 让 idGen 从 3 开始
-        idGen.set(3);
+    @PostConstruct
+    public void initDefaultConsultants() {
+        if (consultantRepository.count() == 0) {
+            consultantRepository.save(new Consultant(null, "Default Consultant", true));
+            consultantRepository.save(new Consultant(null, "New Applicant", false));
+        }
     }
 
     public List<Consultant> listAll() {
-        List<Consultant> list = new ArrayList<>(consultants.values());
+        List<Consultant> list = consultantRepository.findAll();
         list.sort(Comparator.comparingLong(c -> c.getId() == null ? Long.MAX_VALUE : c.getId()));
         return list;
     }
 
     public Optional<Consultant> findById(long id) {
-        return Optional.ofNullable(consultants.get(id));
+        return consultantRepository.findById(id);
     }
 
     public Consultant register(String name) {
-        long id = idGen.getAndIncrement();
-        Consultant c = new Consultant(id, name, false); // 新注册默认未审批
-        consultants.put(id, c);
-        return c;
+        Consultant c = new Consultant(null, name, false);
+        return consultantRepository.save(c);
     }
 
-    // UC11: approve/reject
     public Consultant approve(long id) {
-        Consultant c = consultants.get(id);
-        if (c == null) throw new NoSuchElementException("Consultant not found: " + id);
+        Consultant c = consultantRepository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Consultant not found: " + id));
         c.setApproved(true);
-        return c;
+        return consultantRepository.save(c);
     }
 
     public Consultant reject(long id) {
-        Consultant c = consultants.get(id);
-        if (c == null) throw new NoSuchElementException("Consultant not found: " + id);
+        Consultant c = consultantRepository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Consultant not found: " + id));
         c.setApproved(false);
-        return c;
+        return consultantRepository.save(c);
     }
 }
